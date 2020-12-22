@@ -1,0 +1,29 @@
+{
+  "squats": {
+    "time_based": false,
+    "mse_threshold": 0.05,
+    "joints": [
+      [
+        "left_hip",
+        "left_knee",
+        "left_ankle"
+      ],
+      [
+        "right_hip",
+        "right_knee",
+        "right_ankle"
+      ]
+    ]
+  },
+  "dummy": {
+    "time_based": false,
+    "mse_threshold": 0.05,
+    "joints": [
+      [
+        "right_wrist",
+        "right_elbow",
+        "right_shoulder"
+      ]
+    ]
+  }
+}

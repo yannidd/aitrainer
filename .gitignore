@@ -1,0 +1,11 @@
+scripts/
+vids/
+pe/
+keypoints/
+.env/
+.ipynb_checkpoints/
+.pylintrc
+.vscode
+__pycache__/
+*.pyc
+models/
