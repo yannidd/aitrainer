@@ -1,11 +1,8 @@
-import time
-
 from aitrainer.asr import ASR
 from aitrainer.camera import CameraCv2
 from aitrainer.pose import PoseEstimator
 from aitrainer.tts import TTS
 from aitrainer.utils.console import setup_logging
-from multiprocessing import set_start_method
 
 
 def main():

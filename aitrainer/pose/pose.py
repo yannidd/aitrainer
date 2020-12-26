@@ -2,7 +2,6 @@ import json
 import logging
 import time
 from multiprocessing import Process, Queue, Value
-from multiprocessing.connection import Connection
 from typing import Type
 
 import numpy as np
@@ -10,10 +9,8 @@ import pycuda.driver as cuda
 import torch
 import trt_pose.coco
 from aitrainer.camera.base import CameraBase
-from aitrainer.camera.cv2 import CameraCv2
 from aitrainer.pose.models.resnet import ResNet
-from aitrainer.pose.utils import (KeypointDrawer, bgr8_to_jpeg, extract_keypoints,
-                                  preprocess_image)
+from aitrainer.pose.utils import (KeypointDrawer, extract_keypoints, preprocess_image)
 from trt_pose.parse_objects import ParseObjects
 
 

@@ -4,7 +4,6 @@ import warnings
 import numpy as np
 import tensorrt as trt
 import torch
-import torch.nn.functional as F
 from aitrainer.asr.models.quartznet.values import FILTERBANKS, N_MEAN, N_STD
 from aitrainer.common.trt_utils import load_engine, run_trt_engine
 from scipy.special import softmax

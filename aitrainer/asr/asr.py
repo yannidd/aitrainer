@@ -1,17 +1,12 @@
 import logging
-import os
 import time
 import warnings
 from multiprocessing import Process, Queue, Value
-from threading import Thread
 
 import numpy as np
 import pycuda.driver as cuda
-import torch
 from aitrainer.asr.models.ctclm import Decoder
 from aitrainer.asr.models.quartznet import MelFeaturizer, QuartzNet
-from aitrainer.utils.console import setup_logging
-from scipy.io import wavfile
 
 warnings.filterwarnings('ignore', message='The function torch.rfft is deprecated and will be removed in a future PyTorch release. Use the new torch.fft module functions, instead, by importing torch.fft and calling torch.fft.fft or torch.fft.rfft.')  # yapf: disable
 

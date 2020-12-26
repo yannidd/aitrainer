@@ -1,21 +1,10 @@
 import logging
-import os
-import signal
 import time
 from multiprocessing import Process, Queue, Value
 
-import numpy as np
-import pyaudio
 import pycuda.driver as cuda
-import torch
-import torch.nn as nn
-from aitrainer.tts.models.squeezewave.denoiser import Denoiser
 from aitrainer.tts.models.squeezewave import SqueezeWave
 from aitrainer.tts.models.tacotron2 import Tacotron2
-from aitrainer.tts.models.tacotron2.text import text_to_sequence
-from scipy.io.wavfile import write
-
-torch.set_grad_enabled(False)
 
 MAX_WAV_VALUE = 32768.0
 
