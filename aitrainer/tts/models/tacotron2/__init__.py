@@ -1,0 +1,1 @@
+from aitrainer.tts.models.tacotron2.tacotron2 import Tacotron2

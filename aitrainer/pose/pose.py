@@ -5,14 +5,15 @@ from multiprocessing import Process, Queue, Value
 from multiprocessing.connection import Connection
 from typing import Type
 
+import numpy as np
+import pycuda.driver as cuda
 import torch
-import torch2trt
 import trt_pose.coco
 from aitrainer.camera.base import CameraBase
 from aitrainer.camera.cv2 import CameraCv2
+from aitrainer.pose.models.resnet import ResNet
 from aitrainer.pose.utils import (KeypointDrawer, bgr8_to_jpeg, extract_keypoints,
                                   preprocess_image)
-from torch2trt import TRTModule
 from trt_pose.parse_objects import ParseObjects
 
 
@@ -50,6 +51,10 @@ class PoseEstimator:
 def pose_estimation_worker(keypoint_queue: Queue, run: Value, done_loading: Value,
                            camera_class: Type[CameraBase], draw: bool):
   try:
+    cuda.init()
+    device = cuda.Device(0)  # enter your Gpu id here
+    ctx = device.make_context()
+
     # Load human pose definition and topology.
     with open('config/human_pose.json', 'r') as f:
       human_pose = json.load(f)
@@ -58,12 +63,11 @@ def pose_estimation_worker(keypoint_queue: Queue, run: Value, done_loading: Valu
 
     # Load trt pose model.
     logging.info('Loading the pose model...')
-    model_trt = TRTModule()
-    model_trt.load_state_dict(torch.load('models/resnet18_baseline_att_trt.pth'))
+    resnet = ResNet()
 
     # Define mean and std for image preprocessing.
-    mean = torch.Tensor([0.485, 0.456, 0.406]).cuda()
-    std = torch.Tensor([0.229, 0.224, 0.225]).cuda()
+    mean = np.array([0.485, 0.456, 0.406])
+    std = np.array([0.229, 0.224, 0.225])
 
     # Create object parser.
     parse_objects = ParseObjects(topology)
@@ -81,8 +85,8 @@ def pose_estimation_worker(keypoint_queue: Queue, run: Value, done_loading: Valu
     while run.value:
       image = camera.get_frame()
       data = preprocess_image(image, mean, std)
-      cmap, paf = model_trt(data)
-      cmap, paf = cmap.detach().cpu(), paf.detach().cpu()
+      cmap, paf = resnet(data)
+      cmap, paf = torch.Tensor(cmap[None, ...]), torch.Tensor(paf[None, ...])
       counts, objects, peaks = parse_objects(cmap, paf)
       keypoints = extract_keypoints(objects, peaks, keypoint_names)
       keypoint_queue.put(keypoints)
@@ -92,4 +96,5 @@ def pose_estimation_worker(keypoint_queue: Queue, run: Value, done_loading: Valu
   except KeyboardInterrupt:
     pass
 
+  ctx.pop()
   camera.release()

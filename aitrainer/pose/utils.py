@@ -1,6 +1,5 @@
 import cv2
 import PIL.Image
-import torchvision.transforms as transforms
 import numpy as np
 
 
@@ -26,11 +25,11 @@ def bgr8_to_jpeg(value, quality=75):
 
 
 def preprocess_image(image, mean, std):
-  image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
-  image = PIL.Image.fromarray(image)
-  image = transforms.functional.to_tensor(image).cuda()
-  image.sub_(mean[:, None, None]).div_(std[:, None, None])
-  return image[None, ...]
+  image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB) / 255
+  image = np.einsum('ijk->kij', image).copy()
+  image -= mean[:, None, None]
+  image /= std[:, None, None]
+  return image.astype(np.float16)
 
 
 class KeypointDrawer:

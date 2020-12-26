@@ -1,0 +1,1 @@
+from aitrainer.tts.models.squeezewave.squeezewave import SqueezeWave

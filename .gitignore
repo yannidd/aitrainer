@@ -8,4 +8,4 @@ keypoints/
 .vscode
 __pycache__/
 *.pyc
-models/
+models/*

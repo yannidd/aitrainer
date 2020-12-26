@@ -1,8 +1,4 @@
-onnx==1.8.0
-onnxruntime==1.6.0
 torch==1.7.1 
-torchaudio==0.7.2 
-torchvision==0.8.2
 colorlog==4.6.2
 opencv-python==4.4.0.46
 tqdm==4.54.1
@@ -11,7 +7,6 @@ pycocotools==2.0.2
 matplotlib==3.3.3
 pyaudio==0.2.11
 scipy==1.5.4
-librosa==0.8.0
 unidecode==1.1.1
 inflect==5.0.2
 sounddevice==0.4.1

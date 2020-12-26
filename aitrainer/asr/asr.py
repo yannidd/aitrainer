@@ -3,11 +3,13 @@ import os
 import time
 import warnings
 from multiprocessing import Process, Queue, Value
+from threading import Thread
 
 import numpy as np
+import pycuda.driver as cuda
 import torch
 from aitrainer.asr.models.ctclm import Decoder
-from aitrainer.asr.models.quartznet import QuartzNet
+from aitrainer.asr.models.quartznet import MelFeaturizer, QuartzNet
 from aitrainer.utils.console import setup_logging
 from scipy.io import wavfile
 
@@ -46,19 +48,24 @@ def asr_worker(text_queue: Queue, run: Value, done_loading: Value):
     import sounddevice as sd
     import soundfile as sf
 
+    # Initialise CUDA.
+    cuda.init()
+    device = cuda.Device(0)
+    ctx = device.make_context()
+
     # Load the QuartzNet ASR model.
     logging.info('Loading QuartzNet model for ASR...')
+    featurizer = MelFeaturizer()
     quartznet = QuartzNet()
 
     # Initialise the Decoder.
     logging.info('Loading CTC Beam Decoder...')
-    decoder = Decoder(model_path='models/3_gram_lm.trie', alpha=1, beta=0.5)
-    # decoder = Decoder()
+    decoder = Decoder(model_path='models/lm/3_gram_lm.trie', alpha=1, beta=0.5)
 
     with done_loading.get_lock():
       done_loading.value = 1
 
-    chunk_size = 8000
+    chunk_size = 1 * 16000
     n_past_chunks = 5
     past_chunks_size = chunk_size * (n_past_chunks - 1)
     activation_words = ['jarvis', 'jervis']
@@ -78,9 +85,8 @@ def asr_worker(text_queue: Queue, run: Value, done_loading: Value):
       activation_waveform = np.roll(activation_waveform, -chunk_size)
       activation_waveform[past_chunks_size:, 0] = data[:, 0]
       # Run ASR.
-      token_probs = quartznet(torch.from_numpy(activation_waveform.T))
+      token_probs = quartznet(featurizer(activation_waveform.T))
       decoded = decoder(token_probs)
-
       # If the keyword was said...
       if any([word in decoded for word in activation_words]):
         logging.info('ASR triggered!')
@@ -91,7 +97,7 @@ def asr_worker(text_queue: Queue, run: Value, done_loading: Value):
         # Play a peeb sound.
         out_stream.write(peeb)
         # Run ASR.
-        token_probs = quartznet(torch.from_numpy(_data.T))
+        token_probs = quartznet(featurizer(_data.T))
         decoded = decoder(token_probs)
         # Add the recognised text to the text queue and reset the activation waveform buffer.
         logging.info(f'ASR recognised: "{decoded}".')
@@ -100,5 +106,6 @@ def asr_worker(text_queue: Queue, run: Value, done_loading: Value):
   except KeyboardInterrupt:
     pass
 
+  ctx.pop()
   in_stream.stop()
   out_stream.stop()

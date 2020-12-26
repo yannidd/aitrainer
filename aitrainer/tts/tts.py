@@ -6,11 +6,12 @@ from multiprocessing import Process, Queue, Value
 
 import numpy as np
 import pyaudio
+import pycuda.driver as cuda
 import torch
 import torch.nn as nn
 from aitrainer.tts.models.squeezewave.denoiser import Denoiser
-from aitrainer.tts.models.squeezewave.glow import SqueezeWave
-from aitrainer.tts.models.tacotron2.tacotron2 import Tacotron2
+from aitrainer.tts.models.squeezewave import SqueezeWave
+from aitrainer.tts.models.tacotron2 import Tacotron2
 from aitrainer.tts.models.tacotron2.text import text_to_sequence
 from scipy.io.wavfile import write
 
@@ -56,19 +57,11 @@ def say(text, squeezewave, tacotron2, denoiser, sd):
   text = ' ' + text + ' '
   logging.info(f'TTS saying: "{text.strip()}"')
 
-  # preprocessing
-  sequence = np.array(tacotron2.text_to_sequence(text, ['english_cleaners']))[None, :]
-  sequence = torch.from_numpy(sequence).to(device='cuda', dtype=torch.int64)
-  input_length = torch.IntTensor([sequence.size(1)]).long().cuda()
+  # Run the models.
+  mel = tacotron2(text)
+  audio = (squeezewave(mel) * MAX_WAV_VALUE).astype('int16')
 
-  # run the models
-  with torch.no_grad():
-    mel, _, _ = tacotron2.infer(sequence, input_length)
-    audio = squeezewave.infer(mel).float()
-    audio = denoiser(audio)
-    audio = audio * MAX_WAV_VALUE
-    audio = audio.squeeze().cpu().numpy().astype('int16')
-
+  # Play sound.
   rate = 22050
   sd.play(audio, rate)
   sd.wait()
@@ -78,25 +71,24 @@ def tts_worker(text_queue: Queue, run: Value, done_loading: Value, is_speaking: 
   try:
     import sounddevice as sd
 
-    # Load Tacotron2
-    logging.info('Loading Tacotron2 for TTS...')
-    ckpt = torch.load('models/tacotron2_fp32.pth')
-    tacotron2 = Tacotron2(**ckpt['config'])
-    tacotron2.load_state_dict(ckpt['state_dict'])
-    tacotron2 = tacotron2.cuda().eval()
-    tacotron2.text_to_sequence = text_to_sequence
+    # Initialise CUDA.
+    cuda.init()
+    device = cuda.Device(0)
+    ctx = device.make_context()
 
-    # Load SqueezeWave
+    # Load Tacotron2.
+    logging.info('Loading Tacotron2 for TTS...')
+    tacotron2 = Tacotron2()
+
+    # Load SqueezeWave.
     logging.info('Loading SqueezeWave for TTS...')
-    ckpt = torch.load('models/squeezewave_l128_small.pth')
-    squeezewave = SqueezeWave(**ckpt['kwargs'])
-    squeezewave.load_state_dict(ckpt['state_dict'])
-    squeezewave = squeezewave.cuda().eval()
-    squeezewave = squeezewave.remove_weightnorm(squeezewave)
+    squeezewave = SqueezeWave()
 
     # Create a Denoiser.
+    # TODO: Create a proper denoiser, currently it's just an identity function.
     logging.info('Creating a Denoiser for TTS...')
-    denoiser = Denoiser(squeezewave).cuda()
+    denoiser = lambda x: x
+    # denoiser = Denoiser(squeezewave).cuda()
 
     with done_loading.get_lock():
       done_loading.value = 1
@@ -112,3 +104,4 @@ def tts_worker(text_queue: Queue, run: Value, done_loading: Value, is_speaking: 
   except KeyboardInterrupt:
     pass
 
+  ctx.pop()
