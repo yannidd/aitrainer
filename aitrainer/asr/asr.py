@@ -7,6 +7,7 @@ import numpy as np
 import pycuda.driver as cuda
 from aitrainer.asr.models.ctclm import Decoder
 from aitrainer.asr.models.quartznet import MelFeaturizer, QuartzNet
+from numpy.core.shape_base import block
 
 warnings.filterwarnings('ignore', message='The function torch.rfft is deprecated and will be removed in a future PyTorch release. Use the new torch.fft module functions, instead, by importing torch.fft and calling torch.fft.fft or torch.fft.rfft.')  # yapf: disable
 
@@ -16,7 +17,11 @@ class ASR:
     self.text_queue = Queue(maxsize=1)
     self.run = Value('i', 1)
     self.done_loading = Value('i', 0)
-    self.process = Process(target=asr_worker, args=(self.text_queue, self.run, self.done_loading))
+    self.activation_words = activation_words if isinstance(activation_words,
+                                                           list) else [activation_words]
+    self.process = Process(target=asr_worker,
+                           args=(self.text_queue, self.run, self.done_loading,
+                                 self.activation_words))
 
   @property
   def is_available(self):
@@ -38,7 +43,10 @@ class ASR:
     self.process.join()
 
 
-def asr_worker(text_queue: Queue, run: Value, done_loading: Value):
+def asr_worker(text_queue: Queue, run: Value, done_loading: Value, activation_words: list):
+  ctx = None
+  in_stream = None
+
   try:
     import sounddevice as sd
     import soundfile as sf
@@ -56,6 +64,7 @@ def asr_worker(text_queue: Queue, run: Value, done_loading: Value):
     # Initialise the Decoder.
     logging.info('Loading CTC Beam Decoder...')
     decoder = Decoder(model_path='models/lm/3_gram_lm.trie', alpha=1, beta=0.5)
+    # decoder = Decoder(alpha=1, beta=0.5)
 
     with done_loading.get_lock():
       done_loading.value = 1
@@ -63,14 +72,13 @@ def asr_worker(text_queue: Queue, run: Value, done_loading: Value):
     chunk_size = 1 * 16000
     n_past_chunks = 5
     past_chunks_size = chunk_size * (n_past_chunks - 1)
-    activation_words = ['jarvis', 'jervis']
-    beep, _ = sf.read('assets/wav/beep.wav', dtype='float32')
+    beep, fs = sf.read('assets/wav/beep.wav', dtype='float32')
     peeb = np.ascontiguousarray(np.flip(beep))
     activation_waveform = np.zeros((n_past_chunks * chunk_size, 1), dtype=np.float32)
     in_stream = sd.InputStream(samplerate=16000, channels=1)
-    out_stream = sd.OutputStream(samplerate=44100, channels=2)
+    out_stream = lambda: sd.OutputStream(samplerate=fs, channels=2, blocksize=100)
     in_stream.start()
-    out_stream.start()
+    # out_stream.start()
 
     while run.value:
       # Read waveform from the microphone and store in the rolling buffer.
@@ -82,15 +90,18 @@ def asr_worker(text_queue: Queue, run: Value, done_loading: Value):
       # Run ASR.
       token_probs = quartznet(featurizer(activation_waveform.T))
       decoded = decoder(token_probs)
+      logging.debug(f'ASR live decoding: "{decoded}".')
       # If the keyword was said...
       if any([word in decoded for word in activation_words]):
         logging.info('ASR triggered!')
         # Play a beep sound.
-        out_stream.write(beep)
+        with out_stream() as stream:
+          stream.write(beep)
         # Read waveform from the microphone.
         _data = in_stream.read(5 * 16000)[0]
         # Play a peeb sound.
-        out_stream.write(peeb)
+        with out_stream() as stream:
+          stream.write(peeb)
         # Run ASR.
         token_probs = quartznet(featurizer(_data.T))
         decoded = decoder(token_probs)
@@ -99,8 +110,7 @@ def asr_worker(text_queue: Queue, run: Value, done_loading: Value):
         text_queue.put(decoded)
         activation_waveform *= 0
   except KeyboardInterrupt:
-    pass
-
-  ctx.pop()
-  in_stream.stop()
-  out_stream.stop()
+    if ctx is not None:
+      ctx.pop()
+    if in_stream is not None:
+      in_stream.stop()

@@ -51,12 +51,14 @@ def say(text, squeezewave, tacotron2, denoiser, sd):
   audio = (squeezewave(mel) * MAX_WAV_VALUE).astype('int16')
 
   # Play sound.
-  rate = 22050
-  sd.play(audio, rate)
-  sd.wait()
+  out_stream = lambda: sd.OutputStream(samplerate=22050 / 2, channels=2, dtype='int16')
+  with out_stream() as stream:
+    stream.write(audio)
 
 
 def tts_worker(text_queue: Queue, run: Value, done_loading: Value, is_speaking: Value):
+  ctx = None
+
   try:
     import sounddevice as sd
 
@@ -91,6 +93,5 @@ def tts_worker(text_queue: Queue, run: Value, done_loading: Value, is_speaking: 
           is_speaking.value = 0
       time.sleep(0.1)
   except KeyboardInterrupt:
-    pass
-
-  ctx.pop()
+    if ctx is not None:
+      ctx.pop()
