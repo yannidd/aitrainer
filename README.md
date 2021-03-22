@@ -54,3 +54,11 @@ Download the models from TODO and unzip them. Then generate the TensorRT enignes
 ```bash
 python -m scripts.onnx2trt
 ```
+
+## Running Apps:
+
+```bash
+python -m aitrainer.asr_app  # ASR App
+python -m aitrainer.tts_app  # TTS App
+python -m aitrainer.assistant_app  # Assistant App
+```
