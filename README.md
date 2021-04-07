@@ -1,24 +1,11 @@
 # Personal AI Trainer
 
-## TOC <!-- omit in toc -->
-- [1. Install](#1-install)
-  - [1.1. Dependencies](#11-dependencies)
-  - [1.2. Personal AI Trainer](#12-personal-ai-trainer)
-
-## 1. Install
-
-### 1.1. Dependencies
+## Prerequisites
 
  CUDA 10.2 and cuDNN 8.0.3
 - Install [CUDA Toolkit](https://docs.nvidia.com/cuda/cuda-installation-guide-linux/index.html) 10.2, [cuDNN](https://docs.nvidia.com/deeplearning/cudnn/install-guide/index.html) 8.0.3, and [TensorRT](https://docs.nvidia.com/deeplearning/tensorrt/install-guide/index.html) 7.1.3.4.
 
 - Install [PyTorch](https://pytorch.org/) with CUDA.
-
-- TODO: Install Ubuntu dependencies:
-
-```bash
-...
-```
 
 - Create a Python environment (optional, but recommended):
 
@@ -62,4 +49,15 @@ cd ..
 rm -rf ctcdecode
 ```
 
-### 1.2. Personal AI Trainer
+Download the models from TODO and unzip them. Then generate the TensorRT enignes using:
+
+```bash
+python -m scripts.onnx2trt
+```
+
+## Running Apps:
+
+```bash
+python -m aitrainer.rep_counter  # The main app for repetition counting.
+python -m aitrainer.plotting_app  # An app that plots the joint angles.
+```
