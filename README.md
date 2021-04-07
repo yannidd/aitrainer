@@ -58,6 +58,6 @@ python -m scripts.onnx2trt
 ## Running Apps:
 
 ```bash
-python -m aitrainer.rep_counter  # The main app for repetition counting.
-python -m aitrainer.plotting_app  # An app that plots the joint angles.
+python -m aitrainer.rep_counter  # The main app that does repetitions counting.
+python -m aitrainer.plotting_app  # An app to plot the joint angles and MSE while doing an exercise.
 ```
